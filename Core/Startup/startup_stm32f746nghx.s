@@ -1,8 +1,8 @@
 /**
   ******************************************************************************
-  * @file      startup_stm32f746xx.s
+  * @file      startup_stm32f750xx.s
   * @author    MCD Application Team
-  * @brief     STM32F746xx Devices vector table for GCC based toolchain. 
+  * @brief     STM32F750xx Devices vector table for GCC based toolchain.
   *            This module performs:
   *                - Set the initial SP
   *                - Set the initial PC == Reset_Handler,
@@ -14,13 +14,12 @@
   ******************************************************************************
   * @attention
   *
-  * <h2><center>&copy; Copyright (c) 2016 STMicroelectronics.
-  * All rights reserved.</center></h2>
+  * Copyright (c) 2016 STMicroelectronics.
+  * All rights reserved.
   *
-  * This software component is licensed by ST under BSD 3-Clause license,
-  * the "License"; You may not use this file except in compliance with the
-  * License. You may obtain a copy of the License at:
-  *                        opensource.org/licenses/BSD-3-Clause
+  * This software is licensed under terms that can be found in the LICENSE file
+  * in the root directory of this software component.
+  * If no LICENSE file comes with this software, it is provided AS-IS.
   *
   ******************************************************************************
   */
@@ -58,38 +57,64 @@ defined in linker script */
     .section  .text.Reset_Handler
   .weak  Reset_Handler
   .type  Reset_Handler, %function
+
+.word _siram_code;
+.word _sram_code;
+.word _eram_code;
+
 Reset_Handler:  
   ldr   sp, =_estack      /* set stack pointer */
 
 /* Copy the data segment initializers from flash to SRAM */  
-  movs  r1, #0
-  b  LoopCopyDataInit
+  ldr r0, =_sdata
+  ldr r1, =_edata
+  ldr r2, =_sidata
+  movs r3, #0
+  movs r1, #0
+
+  b LoopCopyDataInit
+
+RamCodeInit:
+ ldr r3, =_siram_code
+ ldr r3, [r3, r1]
+ str r3, [r0, r1]
+ adds r1, r1, #4
+
+LoopRamCodeInit:
+ ldr r0, =_sram_code
+ ldr r3, =_eram_code
+ adds r2, r0, r1
+ cmp r2, r3
+ bcc RamCodeInit
+/* Copy the data segment initializers from flash to SRAM */
+ movs r1, #0
+ b LoopCopyDataInit
 
 CopyDataInit:
-  ldr  r3, =_sidata
-  ldr  r3, [r3, r1]
-  str  r3, [r0, r1]
-  adds  r1, r1, #4
-    
-LoopCopyDataInit:
-  ldr  r0, =_sdata
-  ldr  r3, =_edata
-  adds  r2, r0, r1
-  cmp  r2, r3
-  bcc  CopyDataInit
-  ldr  r2, =_sbss
-  b  LoopFillZerobss
-/* Zero fill the bss segment. */  
-FillZerobss:
-  movs  r3, #0
-  str  r3, [r2], #4
-    
-LoopFillZerobss:
-  ldr  r3, = _ebss
-  cmp  r2, r3
-  bcc  FillZerobss
+  ldr r4, [r2, r3]
+  str r4, [r0, r3]
+  adds r3, r3, #4
 
-/* Call the clock system initialization function.*/
+LoopCopyDataInit:
+  adds r4, r0, r3
+  cmp r4, r1
+  bcc CopyDataInit
+
+/* Zero fill the bss segment. */
+  ldr r2, =_sbss
+  ldr r4, =_ebss
+  movs r3, #0
+  b LoopFillZerobss
+
+FillZerobss:
+  str  r3, [r2]
+  adds r2, r2, #4
+
+LoopFillZerobss:
+  cmp r2, r4
+  bcc FillZerobss
+
+/* Call the clock system intitialization function.*/
   bl  SystemInit   
 /* Call static constructors */
     bl __libc_init_array
@@ -221,8 +246,8 @@ g_pfnVectors:
   .word     OTG_HS_WKUP_IRQHandler            /* USB OTG HS Wakeup through EXTI */                         
   .word     OTG_HS_IRQHandler                 /* USB OTG HS                   */                   
   .word     DCMI_IRQHandler                   /* DCMI                         */                   
-  .word     0                                 /* Reserved                     */                   
-  .word     RNG_IRQHandler                    /* Rng                          */
+  .word     CRYP_IRQHandler                   /* Crypto                       */
+  .word     HASH_RNG_IRQHandler               /* Hash and Rng                 */
   .word     FPU_IRQHandler                    /* FPU                          */
   .word     UART7_IRQHandler                  /* UART7                        */      
   .word     UART8_IRQHandler                  /* UART8                        */
@@ -457,9 +482,6 @@ g_pfnVectors:
             
    .weak      DMA2_Stream4_IRQHandler               
    .thumb_set DMA2_Stream4_IRQHandler,Default_Handler
-   
-   .weak      DMA2_Stream4_IRQHandler               
-   .thumb_set DMA2_Stream4_IRQHandler,Default_Handler   
 
    .weak      ETH_IRQHandler   
    .thumb_set ETH_IRQHandler,Default_Handler
@@ -515,8 +537,11 @@ g_pfnVectors:
    .weak      DCMI_IRQHandler            
    .thumb_set DCMI_IRQHandler,Default_Handler
 
-   .weak      RNG_IRQHandler            
-   .thumb_set RNG_IRQHandler,Default_Handler   
+   .weak      CRYP_IRQHandler
+   .thumb_set CRYP_IRQHandler,Default_Handler
+
+   .weak      HASH_RNG_IRQHandler
+   .thumb_set HASH_RNG_IRQHandler,Default_Handler
 
    .weak      FPU_IRQHandler                  
    .thumb_set FPU_IRQHandler,Default_Handler
@@ -569,5 +594,4 @@ g_pfnVectors:
    .weak      SPDIF_RX_IRQHandler            
    .thumb_set SPDIF_RX_IRQHandler,Default_Handler 
 
-/************************ (C) COPYRIGHT STMicroelectronics *****END OF FILE****/        
  
